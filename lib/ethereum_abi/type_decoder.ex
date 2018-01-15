@@ -1,13 +1,13 @@
-defmodule ABI.TypeDecoder do
+defmodule EthereumABI.TypeDecoder do
   @moduledoc """
-  `ABI.TypeDecoder` is responsible for decoding types to the format
+  `EthereumABI.TypeDecoder` is responsible for decoding types to the format
   expected by Solidity. We generally take a function selector and binary
   data and decode that into the original arguments according to the
   specification.
   """
 
   @doc """
-  Decodes the given data based on the function selector.
+  Decodes the given data based on the function selector's input argument types.
 
   Note, we don't currently try to guess the function name?
 
@@ -15,8 +15,8 @@ defmodule ABI.TypeDecoder do
 
       iex> "00000000000000000000000000000000000000000000000000000000000000450000000000000000000000000000000000000000000000000000000000000001"
       ...> |> Base.decode16!(case: :lower)
-      ...> |> ABI.TypeDecoder.decode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeDecoder.decode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: "baz",
       ...>        types: [
       ...>          {:uint, 32},
@@ -29,8 +29,8 @@ defmodule ABI.TypeDecoder do
 
       iex> "000000000000000000000000000000000000000000000000000000000000000b68656c6c6f20776f726c64000000000000000000000000000000000000000000"
       ...> |> Base.decode16!(case: :lower)
-      ...> |> ABI.TypeDecoder.decode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeDecoder.decode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          :string
@@ -41,8 +41,8 @@ defmodule ABI.TypeDecoder do
 
       iex> "00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000001"
       ...> |> Base.decode16!(case: :lower)
-      ...> |> ABI.TypeDecoder.decode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeDecoder.decode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          {:tuple, [{:uint, 32}, :bool]}
@@ -53,8 +53,8 @@ defmodule ABI.TypeDecoder do
 
       iex> "00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000001"
       ...> |> Base.decode16!(case: :lower)
-      ...> |> ABI.TypeDecoder.decode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeDecoder.decode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          {:array, {:uint, 32}, 2}
@@ -65,8 +65,8 @@ defmodule ABI.TypeDecoder do
 
       iex> "000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000001"
       ...> |> Base.decode16!(case: :lower)
-      ...> |> ABI.TypeDecoder.decode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeDecoder.decode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          {:array, {:uint, 32}}
@@ -77,8 +77,8 @@ defmodule ABI.TypeDecoder do
 
       iex> "000000000000000000000000000000000000000000000000000000000000001100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"
       ...> |> Base.decode16!(case: :lower)
-      ...> |> ABI.TypeDecoder.decode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeDecoder.decode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          {:array, {:uint, 32}, 2},
@@ -90,8 +90,8 @@ defmodule ABI.TypeDecoder do
 
       iex> "000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000007617765736f6d6500000000000000000000000000000000000000000000000000"
       ...> |> Base.decode16!(case: :lower)
-      ...> |> ABI.TypeDecoder.decode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeDecoder.decode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          {:tuple, [:string, :bool]}
@@ -102,8 +102,8 @@ defmodule ABI.TypeDecoder do
 
       iex> "00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000"
       ...> |> Base.decode16!(case: :lower)
-      ...> |> ABI.TypeDecoder.decode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeDecoder.decode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          {:tuple, [{:array, :address}]}
@@ -114,8 +114,8 @@ defmodule ABI.TypeDecoder do
 
       iex> "00000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000c556e617574686f72697a656400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000204a2bf2ff0a4eaf1890c8d8679eaa446fb852c4000000000000000000000000861d9af488d5fa485bb08ab6912fff4f7450849a"
       ...> |> Base.decode16!(case: :lower)
-      ...> |> ABI.TypeDecoder.decode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeDecoder.decode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [{:tuple,[
       ...>          :string,
@@ -131,35 +131,57 @@ defmodule ABI.TypeDecoder do
         ]
       }]
   """
-  def decode(encoded_data, function_selector) do
+  def decode_input(encoded_data, function_selector) do
     decode_raw(encoded_data, function_selector.types)
   end
 
   @doc """
-  Similar to `ABI.TypeDecoder.decode/2` except accepts a list of types instead
+  Decodes the given EVM return-value based on the function selector's return type.
+
+  ## Examples
+
+      iex> "0000000000000000000000000000000000000000000000000000000000000001"
+      ...> |> Base.decode16!(case: :lower)
+      ...> |> EthereumABI.TypeDecoder.decode(
+      ...>      %EthereumABI.FunctionSelector{
+      ...>        function: "baz",
+      ...>        returns: :bool
+      ...>      }
+      ...>    )
+      [true]
+  """
+  def decode_output(encoded_data, function_selector) do
+    [result] = decode_raw(encoded_data, [function_selector.returns])
+    result
+  end
+
+
+  @doc """
+  Similar to `EthereumABI.TypeDecoder.decode/2` except accepts a list of types instead
   of a function selector.
 
   ## Examples
 
       iex> "000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000007617765736f6d6500000000000000000000000000000000000000000000000000"
       ...> |> Base.decode16!(case: :lower)
-      ...> |> ABI.TypeDecoder.decode_raw([{:tuple, [:string, :bool]}])
+      ...> |> EthereumABI.TypeDecoder.decode_raw([{:tuple, [:string, :bool]}])
       [{"awesome", true}]
   """
   def decode_raw(encoded_data, types) do
     do_decode(types, encoded_data)
   end
 
-  @spec do_decode([ABI.FunctionSelector.type], binary()) :: [any()]
-  defp do_decode([], bin) when byte_size(bin) > 0, do: raise("Found extra binary data: #{inspect bin}")
-  defp do_decode([], _), do: []
-  defp do_decode([type|remaining_types], data) do
+  @spec do_decode([EthereumABI.FunctionSelector.type], binary()) :: [any()]
+  defp do_decode(types, bin), do: do_decode(types, bin, [])
+  defp do_decode([], bin, _) when byte_size(bin) > 0, do: raise("Found extra binary data: #{inspect bin}")
+  defp do_decode([], _, acc), do: Enum.reverse(acc)
+  defp do_decode([type|remaining_types], data, acc) do
     {decoded, remaining_data} = decode_type(type, data)
 
-    [decoded | do_decode(remaining_types, remaining_data)]
+    do_decode(remaining_types, remaining_data, [decoded | acc])
   end
 
-  @spec decode_type(ABI.FunctionSelector.type, binary()) :: {any(), binary()}
+  @spec decode_type(EthereumABI.FunctionSelector.type, binary()) :: {any(), binary()}
   defp decode_type({:uint, size_in_bits}, data) do
     decode_uint(data, size_in_bits)
   end
@@ -204,7 +226,7 @@ defmodule ABI.TypeDecoder do
   defp decode_type({:tuple, types}, starting_data) do
     # First pass, decode static types
     {elements, rest} = Enum.reduce(types, {[], starting_data}, fn type, {elements, data} ->
-      if ABI.FunctionSelector.is_dynamic?(type) do
+      if EthereumABI.Type.is_dynamic?(type) do
         {tail_position, rest} = decode_type({:uint, 256}, data)
 
         {[{:dynamic, type, tail_position}|elements], rest}

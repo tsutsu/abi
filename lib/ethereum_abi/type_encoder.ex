@@ -1,6 +1,6 @@
-defmodule ABI.TypeEncoder do
+defmodule EthereumABI.TypeEncoder do
   @moduledoc """
-  `ABI.TypeEncoder` is responsible for encoding types to the format
+  `EthereumABI.TypeEncoder` is responsible for encoding types to the format
   expected by Solidity. We generally take a function selector and an
   array of data and encode that array according to the specification.
   """
@@ -11,8 +11,8 @@ defmodule ABI.TypeEncoder do
   ## Examples
 
       iex> [69, true]
-      ...> |> ABI.TypeEncoder.encode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeEncoder.encode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: "baz",
       ...>        types: [
       ...>          {:uint, 32},
@@ -25,8 +25,8 @@ defmodule ABI.TypeEncoder do
       "cdcd77c000000000000000000000000000000000000000000000000000000000000000450000000000000000000000000000000000000000000000000000000000000001"
 
       iex> ["hello world"]
-      ...> |> ABI.TypeEncoder.encode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeEncoder.encode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          :string,
@@ -37,8 +37,8 @@ defmodule ABI.TypeEncoder do
       "000000000000000000000000000000000000000000000000000000000000000b68656c6c6f20776f726c64000000000000000000000000000000000000000000"
 
       iex> [{"awesome", true}]
-      ...> |> ABI.TypeEncoder.encode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeEncoder.encode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          {:tuple, [:string, :bool]}
@@ -49,8 +49,8 @@ defmodule ABI.TypeEncoder do
       "000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000007617765736f6d6500000000000000000000000000000000000000000000000000"
 
       iex> [{17, true}]
-      ...> |> ABI.TypeEncoder.encode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeEncoder.encode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          {:tuple, [{:uint, 32}, :bool]}
@@ -61,8 +61,8 @@ defmodule ABI.TypeEncoder do
       "00000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000001"
 
       iex> [[17, 1]]
-      ...> |> ABI.TypeEncoder.encode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeEncoder.encode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: "baz",
       ...>        types: [
       ...>          {:array, {:uint, 32}, 2}
@@ -73,8 +73,8 @@ defmodule ABI.TypeEncoder do
       "3d0ec53300000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000001"
 
       iex> [[17, 1], true]
-      ...> |> ABI.TypeEncoder.encode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeEncoder.encode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          {:array, {:uint, 32}, 2},
@@ -86,8 +86,8 @@ defmodule ABI.TypeEncoder do
       "000000000000000000000000000000000000000000000000000000000000001100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001"
 
       iex> [[17, 1]]
-      ...> |> ABI.TypeEncoder.encode(
-      ...>      %ABI.FunctionSelector{
+      ...> |> EthereumABI.TypeEncoder.encode(
+      ...>      %EthereumABI.FunctionSelector{
       ...>        function: nil,
       ...>        types: [
       ...>          {:array, {:uint, 32}}
@@ -98,19 +98,19 @@ defmodule ABI.TypeEncoder do
       "000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000110000000000000000000000000000000000000000000000000000000000000001"
   """
   def encode(data, function_selector) do
-    encode_method_id(function_selector) <>
+    EthereumABI.FunctionSelector.method_id(function_selector) <>
     encode_raw(data, function_selector.types)
   end
 
   @doc """
-  Simiar to `ABI.TypeEncoder.encode/2` except we accept
+  Simiar to `EthereumABI.TypeEncoder.encode/2` except we accept
   an array of types instead of a function selector. We also
   do not pre-pend the method id.
 
   ## Examples
 
       iex> [{"awesome", true}]
-      ...> |> ABI.TypeEncoder.encode_raw([{:tuple, [:string, :bool]}])
+      ...> |> EthereumABI.TypeEncoder.encode_raw([{:tuple, [:string, :bool]}])
       ...> |> Base.encode16(case: :lower)
       "000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000007617765736f6d6500000000000000000000000000000000000000000000000000"
   """
@@ -118,22 +118,7 @@ defmodule ABI.TypeEncoder do
     do_encode(types, data)
   end
 
-  @spec encode_method_id(%ABI.FunctionSelector{}) :: binary()
-  defp encode_method_id(%ABI.FunctionSelector{function: nil}), do: ""
-  defp encode_method_id(function_selector) do
-    # Encode selector e.g. "baz(uint32,bool)" and take keccak
-    kec = function_selector
-    |> ABI.FunctionSelector.encode()
-    |> ExthCrypto.Hash.Keccak.kec()
-
-    # Take first four bytes
-    <<init::binary-size(4), _rest::binary>> = kec
-
-    # That's our method id
-    init
-  end
-
-  @spec do_encode([ABI.FunctionSelector.type], [any()]) :: binary()
+  @spec do_encode([EthereumABI.FunctionSelector.type], [any()]) :: binary()
   defp do_encode([], _), do: <<>>
   defp do_encode([type|remaining_types], data) do
     {encoded, remaining_data} = encode_type(type, data)
@@ -141,7 +126,7 @@ defmodule ABI.TypeEncoder do
     encoded <> do_encode(remaining_types, remaining_data)
   end
 
-  @spec encode_type(ABI.FunctionSelector.type, [any()]) :: {binary(), [any()]}
+  @spec encode_type(EthereumABI.FunctionSelector.type, [any()]) :: {binary(), [any()]}
   defp encode_type({:uint, size}, [data|rest]) do
     {encode_uint(data, size), rest}
   end
@@ -174,7 +159,7 @@ defmodule ABI.TypeEncoder do
     {head, tail, [], _} = Enum.reduce(types, {<<>>, <<>>, data |> Tuple.to_list, tail_start}, fn type, {head, tail, data, tail_position} ->
       {el, rest} = encode_type(type, data)
 
-      if ABI.FunctionSelector.is_dynamic?(type) do
+      if EthereumABI.Type.is_dynamic?(type) do
         # If we're a dynamic type, just encoded the length to head and the element to body
         {head <> encode_uint(tail_position, 256), tail <> el, rest, tail_position + byte_size(el)}
       else
