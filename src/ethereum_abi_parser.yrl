@@ -1,5 +1,5 @@
-Terminals '(' ')' '[' ']' ',' '->' ' ' typename modifier letters digits 'expecting selector' 'expecting type'.
-Nonterminals dispatch selector nontrivial_selector comma_delimited_params maybe_padded_param param type_with_subscripts array_subscripts tuple array_subscript identifier identifier_parts further_identifier_parts initial_identifier_part identifier_part type typespec.
+Terminals '(' ')' '[' ']' ',' '->' 'x' typename modifier letters digits 'expecting selector' 'expecting type'.
+Nonterminals dispatch selector nontrivial_selector comma_delimited_params param annotated_type pre_annotated_type type_annotations type_with_subscripts array_subscripts tuple array_subscript type typespec identifier identifier0 identifierN identifierN_part.
 Rootsymbol dispatch.
 
 dispatch -> 'expecting type' param : {type, '$2'}.
@@ -10,10 +10,9 @@ dispatch -> nontrivial_selector : {selector, '$1'}.
 selector -> typespec : #{function => nil, types => '$1', returns => nil}.
 selector -> nontrivial_selector : '$1'.
 
-nontrivial_selector -> typespec ' ' '->' ' ' param : #{function => nil, types => '$1', returns => '$5'}.
+nontrivial_selector -> typespec '->' param : #{function => nil, types => '$1', returns => '$3'}.
 nontrivial_selector -> identifier typespec : #{function => '$1', types => '$2', returns => nil}.
-nontrivial_selector -> identifier typespec '->' type : #{function => '$1', types => '$2', returns => '$4'}.
-nontrivial_selector -> identifier typespec ' ' '->' ' ' param : #{function => '$1', types => '$2', returns => '$6'}.
+nontrivial_selector -> identifier typespec '->' param : #{function => '$1', types => '$2', returns => '$4'}.
 
 typespec -> '(' ')' : [].
 typespec -> '(' comma_delimited_params ')' : '$2'.
@@ -21,34 +20,20 @@ typespec -> '(' comma_delimited_params ')' : '$2'.
 tuple -> '(' ')' : {tuple, []}.
 tuple -> '(' comma_delimited_params ')' : {tuple, '$2'}.
 
-comma_delimited_params -> maybe_padded_param : ['$1'].
-comma_delimited_params -> maybe_padded_param ',' comma_delimited_params : ['$1' | '$3'].
+comma_delimited_params -> param : ['$1'].
+comma_delimited_params -> param ',' comma_delimited_params : ['$1' | '$3'].
 
-maybe_padded_param -> param : '$1'.
-maybe_padded_param -> ' ' param : '$2'.
+param -> annotated_type : binding('$1', unnamed).
+param -> annotated_type identifier : binding('$1', '$2').
 
-param -> type_with_subscripts : binding('$1', unnamed, []).
-param -> type_with_subscripts ' ' : binding('$1', unnamed, []).
-param -> type_with_subscripts ' ' identifier : binding('$1', '$3', []).
-param -> type_with_subscripts ' ' identifier ' ' : binding('$1', '$3', []).
-param -> type_with_subscripts ' ' modifier ' ' identifier : binding('$1', '$5', ['$3']).
-param -> type_with_subscripts ' ' modifier ' ' identifier ' ' : binding('$1', '$5', ['$3']).
+annotated_type -> pre_annotated_type : '$1'.
+annotated_type -> pre_annotated_type type_annotations : annotate('$1', '$2').
 
-identifier -> identifier_parts : iolist_to_binary('$1').
+pre_annotated_type -> type_with_subscripts : '$1'.
+pre_annotated_type -> type_annotations type_with_subscripts : annotate('$2', '$1').
 
-identifier_parts -> initial_identifier_part : ['$1'].
-identifier_parts -> initial_identifier_part further_identifier_parts : ['$1' | '$2'].
-
-further_identifier_parts -> identifier_part : ['$1'].
-further_identifier_parts -> identifier_part further_identifier_parts : ['$1' | '$2'].
-
-initial_identifier_part -> typename : v('$1').
-initial_identifier_part -> letters : v('$1').
-
-identifier_part -> typename : v('$1').
-identifier_part -> modifier : v('$1').
-identifier_part -> letters : v('$1').
-identifier_part -> digits : v('$1').
+type_annotations -> modifier : [v('$1')].
+type_annotations -> modifier type_annotations : [v('$1') | '$2'].
 
 type_with_subscripts -> type : '$1'.
 type_with_subscripts -> type array_subscripts : with_subscripts('$1', '$2').
@@ -63,18 +48,33 @@ type -> typename :
   plain_type(list_to_atom(v('$1'))).
 type -> typename digits :
   juxt_type(list_to_atom(v('$1')), list_to_integer(v('$2'))).
-type -> typename digits letters digits :
+type -> typename digits 'x' digits :
   double_juxt_type(list_to_atom(v('$1')), v('$3'), list_to_integer(v('$2')), list_to_integer(v('$4'))).
 type -> tuple : '$1'.
 
+identifier -> identifier0 : iolist_to_binary('$1').
+
+identifier0 -> letters : [v('$1')].
+identifier0 -> letters identifierN : [v('$1') | '$2'].
+
+identifierN -> identifierN_part : [v('$1')].
+identifierN -> identifierN_part identifierN : [v('$1') | '$2'].
+
+identifierN_part -> letters : '$1'.
+identifierN_part -> digits : '$1'.
 
 Erlang code.
 
 v({_Token, _Line, Value}) -> Value.
 
-binding(Type, unnamed, []) -> {binding, Type, #{}};
-binding(Type, Name, []) -> {binding, Type, #{name => Name}};
-binding(Type, Name, [Modifier]) -> {binding, Type, #{name => Name, list_to_atom(v(Modifier)) => true}}.
+annotate({annotations, Type, Annotations0}, AddAnnotations) -> {annotations, Type, lists:umerge(Annotations0, AddAnnotations)};
+annotate(Type, AddAnnotations) -> {annotations, Type, AddAnnotations}.
+
+binding({annotations, Type, ["indexed" | Annots]}, Name) ->
+  binding({annotations, {indexed, Type}, Annots}, Name);
+binding({annotations, Type, []}, Name) ->
+  binding(Type, Name);
+binding(Type, Name) -> {binding, Type, Name}.
 
 plain_type(address) -> address;
 plain_type(bool) -> bool;
