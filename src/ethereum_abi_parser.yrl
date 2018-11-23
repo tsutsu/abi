@@ -1,5 +1,5 @@
-Terminals '(' ')' '[' ']' ',' '->' typename letters digits 'expecting selector' 'expecting type'.
-Nonterminals dispatch selector nontrivial_selector comma_delimited_types type_with_subscripts array_subscripts tuple array_subscript identifier  identifier_parts identifier_part type typespec.
+Terminals '(' ')' '[' ']' ',' '->' ' ' typename letters digits 'expecting selector' 'expecting type'.
+Nonterminals dispatch selector nontrivial_selector comma_delimited_params maybe_padded_param param type_with_subscripts array_subscripts tuple array_subscript identifier identifier_parts further_identifier_parts initial_identifier_part identifier_part type typespec.
 Rootsymbol dispatch.
 
 dispatch -> 'expecting type' type_with_subscripts : {type, '$2'}.
@@ -10,23 +10,38 @@ dispatch -> nontrivial_selector : {selector, '$1'}.
 selector -> typespec : #{function => nil, types => '$1', returns => nil}.
 selector -> nontrivial_selector : '$1'.
 
-nontrivial_selector -> typespec '->' type : #{function => nil, types => '$1', returns => '$3'}.
+nontrivial_selector -> typespec ' ' '->' ' ' param : #{function => nil, types => '$1', returns => '$5'}.
 nontrivial_selector -> identifier typespec : #{function => '$1', types => '$2', returns => nil}.
 nontrivial_selector -> identifier typespec '->' type : #{function => '$1', types => '$2', returns => '$4'}.
+nontrivial_selector -> identifier typespec ' ' '->' ' ' param : #{function => '$1', types => '$2', returns => '$6'}.
 
 typespec -> '(' ')' : [].
-typespec -> '(' comma_delimited_types ')' : '$2'.
+typespec -> '(' comma_delimited_params ')' : '$2'.
 
 tuple -> '(' ')' : {tuple, []}.
-tuple -> '(' comma_delimited_types ')' : {tuple, '$2'}.
+tuple -> '(' comma_delimited_params ')' : {tuple, '$2'}.
 
-comma_delimited_types -> type_with_subscripts : ['$1'].
-comma_delimited_types -> type_with_subscripts ',' comma_delimited_types : ['$1' | '$3'].
+comma_delimited_params -> maybe_padded_param : ['$1'].
+comma_delimited_params -> maybe_padded_param ',' comma_delimited_params : ['$1' | '$3'].
+
+maybe_padded_param -> param : '$1'.
+maybe_padded_param -> ' ' param : '$2'.
+
+param -> type_with_subscripts : unnamed_param('$1').
+param -> type_with_subscripts ' ' : unnamed_param('$1').
+param -> type_with_subscripts ' ' identifier : named_param('$1', '$3').
+param -> type_with_subscripts ' ' identifier ' ' : named_param('$1', '$3').
 
 identifier -> identifier_parts : iolist_to_binary('$1').
 
-identifier_parts -> identifier_part : ['$1'].
-identifier_parts -> identifier_part identifier_parts : ['$1' | '$2'].
+identifier_parts -> initial_identifier_part : ['$1'].
+identifier_parts -> initial_identifier_part further_identifier_parts : ['$1' | '$2'].
+
+further_identifier_parts -> identifier_part : ['$1'].
+further_identifier_parts -> identifier_part further_identifier_parts : ['$1' | '$2'].
+
+initial_identifier_part -> typename : v('$1').
+initial_identifier_part -> letters : v('$1').
 
 identifier_part -> typename : v('$1').
 identifier_part -> letters : v('$1').
@@ -53,6 +68,10 @@ type -> tuple : '$1'.
 Erlang code.
 
 v({_Token, _Line, Value}) -> Value.
+
+unnamed_param(Type) -> Type.
+
+named_param(Type, Name) -> {named_param, Type, Name}.
 
 plain_type(address) -> address;
 plain_type(bool) -> bool;

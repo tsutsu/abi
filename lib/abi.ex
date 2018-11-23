@@ -19,7 +19,7 @@ defmodule ABI do
       iex> ABI.encode("baz(uint8)", [9999])
       ** (RuntimeError) Data overflow encoding uint, data `9999` cannot fit in 8 bits
 
-      iex> ABI.encode("(uint,address)", [{50, <<1::160>> |> :binary.decode_unsigned}])
+      iex> ABI.encode("(uint x, address y)", [{50, <<1::160>> |> :binary.decode_unsigned}])
       ...> |> Base.encode16(case: :lower)
       "00000000000000000000000000000000000000000000000000000000000000320000000000000000000000000000000000000000000000000000000000000001"
 
@@ -91,8 +91,8 @@ defmodule ABI do
       iex> File.read!("priv/dog.abi.json")
       ...> |> Jason.decode!
       ...> |> ABI.parse_specification
-      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [:address, :bool]},
-       %ABI.FunctionSelector{function: "rollover", returns: :bool, types: []}]
+      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [{:named_param, :address, "at"}, {:named_param, :bool, "loudly"}]},
+       %ABI.FunctionSelector{function: "rollover", returns: {:named_param, :bool, "is_a_good_boy"}, types: []}]
 
       iex> [%{
       ...>   "constant" => true,
@@ -107,7 +107,7 @@ defmodule ABI do
       ...>   "type" => "function"
       ...> }]
       ...> |> ABI.parse_specification
-      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [:address, :bool]}]
+      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [{:named_param, :address, "at"}, {:named_param, :bool, "loudly"}]}]
 
       iex> [%{
       ...>   "inputs" => [

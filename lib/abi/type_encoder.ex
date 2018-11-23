@@ -221,6 +221,10 @@ defmodule ABI.TypeEncoder do
     {encoded_uint <> encoded_array, rest}
   end
 
+  defp encode_type({:named_param, inner_type, _param_name}, data) do
+    encode_type(inner_type, data)
+  end
+
   defp encode_type(els, _) do
     raise "Unsupported encoding type: #{inspect(els)}"
   end

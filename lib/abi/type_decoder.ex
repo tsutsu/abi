@@ -20,7 +20,7 @@ defmodule ABI.TypeDecoder do
       ...>        function: "baz",
       ...>        types: [
       ...>          {:uint, 32},
-      ...>          :bool
+      ...>          {:named_param, :bool, "xyz"}
       ...>        ],
       ...>        returns: :bool
       ...>      }
@@ -244,6 +244,10 @@ defmodule ABI.TypeDecoder do
       end)
 
     {elements |> Enum.reverse() |> List.to_tuple(), rest}
+  end
+
+  defp decode_type({:named_param, inner_type, _param_name}, data) do
+    decode_type(inner_type, data)
   end
 
   defp decode_type(els, _) do

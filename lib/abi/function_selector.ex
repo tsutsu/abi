@@ -6,20 +6,24 @@ defmodule ABI.FunctionSelector do
 
   require Integer
 
+  @type param :: named_param | unnamed_param
+  @type named_param :: {:named_param, type, binary()}
+  @type unnamed_param :: type
+
   @type type ::
           {:uint, integer()}
           | :bool
           | :bytes
           | :string
           | :address
-          | {:array, type}
-          | {:array, type, non_neg_integer}
-          | {:tuple, [type]}
+          | {:array, param}
+          | {:array, param, non_neg_integer}
+          | {:tuple, [param]}
 
   @type t :: %__MODULE__{
           function: String.t(),
-          types: [type],
-          returns: type
+          types: [param],
+          returns: param
         }
 
   defstruct [:function, :types, :returns]
@@ -140,7 +144,8 @@ defmodule ABI.FunctionSelector do
 
   def parse_specification_item(_), do: nil
 
-  defp parse_specification_type(%{"type" => type}), do: decode_type(type)
+  defp parse_specification_type(%{"name" => param_name, "type" => type}),
+    do: {:named_param, decode_type(type), param_name}
 
   @doc """
   Decodes the given type-string as a single type.
@@ -210,6 +215,8 @@ defmodule ABI.FunctionSelector do
     "(#{Enum.join(encoded_types, ",")})"
   end
 
+  defp get_type({:named_param, inner_type, _param_name}), do: get_type(inner_type)
+
   defp get_type(els), do: raise("Unsupported type: #{inspect(els)}")
 
   @doc false
@@ -219,5 +226,6 @@ defmodule ABI.FunctionSelector do
   def is_dynamic?({:array, _type}), do: true
   def is_dynamic?({:array, type, len}) when len > 0, do: is_dynamic?(type)
   def is_dynamic?({:tuple, types}), do: Enum.any?(types, &is_dynamic?/1)
+  def is_dynamic?({:named_param, inner_type, _param_name}), do: is_dynamic?(inner_type)
   def is_dynamic?(_), do: false
 end
