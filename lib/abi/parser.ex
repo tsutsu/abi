@@ -14,7 +14,7 @@ defmodule ABI.Parser do
 
     {:ok, ast} = :ethereum_abi_parser.parse(tokens)
 
-    canonicalize_fn = if opts[:param_names], do: & &1, else: &strip_names/1
+    canonicalize_fn = if opts[:bindings], do: & &1, else: &strip_bindings/1
 
     case ast do
       {:type, type} ->
@@ -25,14 +25,14 @@ defmodule ABI.Parser do
     end
   end
 
-  defp strip_names({:array, type}), do: {:array, strip_names(type)}
-  defp strip_names({:array, type, size}), do: {:array, strip_names(type), size}
-  defp strip_names({:tuple, types}), do: {:tuple, Enum.map(types, &strip_names/1)}
+  defp strip_bindings({:array, type}), do: {:array, strip_bindings(type)}
+  defp strip_bindings({:array, type, size}), do: {:array, strip_bindings(type), size}
+  defp strip_bindings({:tuple, types}), do: {:tuple, Enum.map(types, &strip_bindings/1)}
 
-  defp strip_names(%{function: f, types: t, returns: r}) do
-    %{function: f, types: Enum.map(t, &strip_names/1), returns: strip_names(r)}
+  defp strip_bindings(%{function: f, types: t, returns: r}) do
+    %{function: f, types: Enum.map(t, &strip_bindings/1), returns: strip_bindings(r)}
   end
 
-  defp strip_names({:named_param, type, _name}), do: strip_names(type)
-  defp strip_names(other_type), do: other_type
+  defp strip_bindings({:binding, inner_type, _opts}), do: strip_bindings(inner_type)
+  defp strip_bindings(other_type), do: other_type
 end

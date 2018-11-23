@@ -6,9 +6,8 @@ defmodule ABI.FunctionSelector do
 
   require Integer
 
-  @type param :: named_param | unnamed_param
-  @type named_param :: {:named_param, type, binary()}
-  @type unnamed_param :: type
+  @type param :: binding | type
+  @type binding :: {:binding, type, map()}
 
   @type type ::
           {:uint, integer()}
@@ -117,15 +116,15 @@ defmodule ABI.FunctionSelector do
   end
 
   @doc false
-  def parse_specification_item(%{"type" => "function"} = item) do
+  def parse_specification_item(%{"type" => "function"} = item, return_bindings?) do
     %{
       "name" => function_name,
       "inputs" => named_inputs,
       "outputs" => named_outputs
     } = item
 
-    input_types = Enum.map(named_inputs, &parse_specification_type/1)
-    output_types = Enum.map(named_outputs, &parse_specification_type/1)
+    input_types = Enum.map(named_inputs, &parse_specification_type(&1, return_bindings?))
+    output_types = Enum.map(named_outputs, &parse_specification_type(&1, return_bindings?))
 
     %ABI.FunctionSelector{
       function: function_name,
@@ -134,7 +133,7 @@ defmodule ABI.FunctionSelector do
     }
   end
 
-  def parse_specification_item(%{"type" => "fallback"}) do
+  def parse_specification_item(%{"type" => "fallback"}, _return_bindings?) do
     %ABI.FunctionSelector{
       function: nil,
       types: [],
@@ -142,10 +141,21 @@ defmodule ABI.FunctionSelector do
     }
   end
 
-  def parse_specification_item(_), do: nil
+  def parse_specification_item(_, _), do: nil
 
-  defp parse_specification_type(%{"name" => param_name, "type" => type}),
-    do: {:named_param, decode_type(type), param_name}
+  defp parse_specification_type(%{"type" => type} = explicit_opts, true) do
+    explicit_opts =
+      explicit_opts
+      |> Map.delete("type")
+      |> Map.new(fn {k, v} -> {String.to_atom(k), v} end)
+
+    {:binding, type, parsed_opts} = decode_type(type, true)
+
+    {:binding, type, Map.merge(parsed_opts, explicit_opts)}
+  end
+  defp parse_specification_type(%{"type" => type}, false) do
+    decode_type(type, false)
+  end
 
   @doc """
   Decodes the given type-string as a single type.
@@ -161,8 +171,8 @@ defmodule ABI.FunctionSelector do
       iex> ABI.FunctionSelector.decode_type("address[][3]")
       {:array, {:array, :address}, 3}
   """
-  def decode_type(single_type) do
-    ABI.Parser.parse!(single_type, as: :type)
+  def decode_type(single_type, return_binding? \\ false) do
+    ABI.Parser.parse!(single_type, as: :type, bindings: return_binding?)
   end
 
   @doc """
@@ -215,7 +225,7 @@ defmodule ABI.FunctionSelector do
     "(#{Enum.join(encoded_types, ",")})"
   end
 
-  defp get_type({:named_param, inner_type, _param_name}), do: get_type(inner_type)
+  defp get_type({:binding, inner_type, _opts}), do: get_type(inner_type)
 
   defp get_type(els), do: raise("Unsupported type: #{inspect(els)}")
 
@@ -226,6 +236,6 @@ defmodule ABI.FunctionSelector do
   def is_dynamic?({:array, _type}), do: true
   def is_dynamic?({:array, type, len}) when len > 0, do: is_dynamic?(type)
   def is_dynamic?({:tuple, types}), do: Enum.any?(types, &is_dynamic?/1)
-  def is_dynamic?({:named_param, inner_type, _param_name}), do: is_dynamic?(inner_type)
+  def is_dynamic?({:binding, inner_type, _opts}), do: is_dynamic?(inner_type)
   def is_dynamic?(_), do: false
 end

@@ -1,8 +1,8 @@
-Terminals '(' ')' '[' ']' ',' '->' ' ' typename letters digits 'expecting selector' 'expecting type'.
+Terminals '(' ')' '[' ']' ',' '->' ' ' typename modifier letters digits 'expecting selector' 'expecting type'.
 Nonterminals dispatch selector nontrivial_selector comma_delimited_params maybe_padded_param param type_with_subscripts array_subscripts tuple array_subscript identifier identifier_parts further_identifier_parts initial_identifier_part identifier_part type typespec.
 Rootsymbol dispatch.
 
-dispatch -> 'expecting type' type_with_subscripts : {type, '$2'}.
+dispatch -> 'expecting type' param : {type, '$2'}.
 dispatch -> 'expecting selector' selector : {selector, '$2'}.
 dispatch -> tuple : {selector, #{function => nil, types => ['$1'], returns => nil}}.
 dispatch -> nontrivial_selector : {selector, '$1'}.
@@ -27,10 +27,12 @@ comma_delimited_params -> maybe_padded_param ',' comma_delimited_params : ['$1' 
 maybe_padded_param -> param : '$1'.
 maybe_padded_param -> ' ' param : '$2'.
 
-param -> type_with_subscripts : unnamed_param('$1').
-param -> type_with_subscripts ' ' : unnamed_param('$1').
-param -> type_with_subscripts ' ' identifier : named_param('$1', '$3').
-param -> type_with_subscripts ' ' identifier ' ' : named_param('$1', '$3').
+param -> type_with_subscripts : binding('$1', unnamed, []).
+param -> type_with_subscripts ' ' : binding('$1', unnamed, []).
+param -> type_with_subscripts ' ' identifier : binding('$1', '$3', []).
+param -> type_with_subscripts ' ' identifier ' ' : binding('$1', '$3', []).
+param -> type_with_subscripts ' ' modifier ' ' identifier : binding('$1', '$5', ['$3']).
+param -> type_with_subscripts ' ' modifier ' ' identifier ' ' : binding('$1', '$5', ['$3']).
 
 identifier -> identifier_parts : iolist_to_binary('$1').
 
@@ -44,6 +46,7 @@ initial_identifier_part -> typename : v('$1').
 initial_identifier_part -> letters : v('$1').
 
 identifier_part -> typename : v('$1').
+identifier_part -> modifier : v('$1').
 identifier_part -> letters : v('$1').
 identifier_part -> digits : v('$1').
 
@@ -69,9 +72,9 @@ Erlang code.
 
 v({_Token, _Line, Value}) -> Value.
 
-unnamed_param(Type) -> Type.
-
-named_param(Type, Name) -> {named_param, Type, Name}.
+binding(Type, unnamed, []) -> {binding, Type, #{}};
+binding(Type, Name, []) -> {binding, Type, #{name => Name}};
+binding(Type, Name, [Modifier]) -> {binding, Type, #{name => Name, list_to_atom(v(Modifier)) => true}}.
 
 plain_type(address) -> address;
 plain_type(bool) -> bool;

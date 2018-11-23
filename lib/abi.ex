@@ -91,8 +91,14 @@ defmodule ABI do
       iex> File.read!("priv/dog.abi.json")
       ...> |> Jason.decode!
       ...> |> ABI.parse_specification
-      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [{:named_param, :address, "at"}, {:named_param, :bool, "loudly"}]},
-       %ABI.FunctionSelector{function: "rollover", returns: {:named_param, :bool, "is_a_good_boy"}, types: []}]
+      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [:address, :bool]},
+       %ABI.FunctionSelector{function: "rollover", returns: :bool, types: []}]
+
+      iex> File.read!("priv/dog.abi.json")
+      ...> |> Poison.decode!
+      ...> |> ABI.parse_specification(bindings: true)
+      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [{:binding, :address, %{name: "at"}}, {:binding, :bool, %{name: "loudly", indexed: true}}]},
+       %ABI.FunctionSelector{function: "rollover", returns: {:binding, :bool, %{name: "is_a_good_boy"}}, types: []}]
 
       iex> [%{
       ...>   "constant" => true,
@@ -107,7 +113,7 @@ defmodule ABI do
       ...>   "type" => "function"
       ...> }]
       ...> |> ABI.parse_specification
-      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [{:named_param, :address, "at"}, {:named_param, :bool, "loudly"}]}]
+      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [:address, :bool]}]
 
       iex> [%{
       ...>   "inputs" => [
@@ -131,9 +137,10 @@ defmodule ABI do
       ...> |> ABI.parse_specification
       [%ABI.FunctionSelector{function: nil, returns: nil, types: []}]
   """
-  def parse_specification(doc) do
+  def parse_specification(doc, opts \\ []) do
+    return_bindings? = Keyword.get(opts, :bindings, false)
     doc
-    |> Enum.map(&ABI.FunctionSelector.parse_specification_item/1)
+    |> Enum.map(&ABI.FunctionSelector.parse_specification_item(&1, return_bindings?))
     |> Enum.filter(& &1)
   end
 end

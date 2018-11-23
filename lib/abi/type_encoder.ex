@@ -221,7 +221,7 @@ defmodule ABI.TypeEncoder do
     {encoded_uint <> encoded_array, rest}
   end
 
-  defp encode_type({:named_param, inner_type, _param_name}, data) do
+  defp encode_type({:binding, inner_type, _opts}, data) do
     encode_type(inner_type, data)
   end
 
