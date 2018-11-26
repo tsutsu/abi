@@ -91,14 +91,14 @@ defmodule ABI do
       iex> File.read!("priv/dog.abi.json")
       ...> |> Jason.decode!
       ...> |> ABI.parse_specification
-      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [:address, :bool]},
+      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [:address, {:indexed, :bool}]},
        %ABI.FunctionSelector{function: "rollover", returns: :bool, types: []}]
 
       iex> File.read!("priv/dog.abi.json")
       ...> |> Poison.decode!
       ...> |> ABI.parse_specification(bindings: true)
-      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [{:binding, :address, %{name: "at"}}, {:binding, :bool, %{name: "loudly", indexed: true}}]},
-       %ABI.FunctionSelector{function: "rollover", returns: {:binding, :bool, %{name: "is_a_good_boy"}}, types: []}]
+      [%ABI.FunctionSelector{function: "bark", returns: nil, types: [{:binding, :address, "at"}, {:binding, {:indexed, :bool}, "loudly"}]},
+       %ABI.FunctionSelector{function: "rollover", returns: {:binding, :bool, "is_a_good_boy"}, types: []}]
 
       iex> [%{
       ...>   "constant" => true,

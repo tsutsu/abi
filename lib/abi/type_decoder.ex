@@ -246,6 +246,16 @@ defmodule ABI.TypeDecoder do
     {elements |> Enum.reverse() |> List.to_tuple(), rest}
   end
 
+  defp decode_type({:indexed, inner_type}, data) do
+    {field_data, rest} = decode_bytes(data, 32, :right)
+
+    if ABI.FunctionSelector.is_potentially_dynamic?(inner_type) do
+      {ABI.DecodedIndexedValue.new(inner_type, field_data), rest}
+    else
+      decode_type(inner_type, field_data)
+    end
+  end
+
   defp decode_type({:binding, inner_type, _opts}, data) do
     decode_type(inner_type, data)
   end

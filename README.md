@@ -70,6 +70,7 @@ Currently supports:
   * [X] `string`
   * [X] `<type>[]`
   * [X] `(T1,T2,...,Tn)` (* currently ABI parsing doesn't parse tuples with multiple elements)
+  * [X] the `indexed` type annotation (potentially-dynamic types are Keccak-hashed when indexed; such values will decode to an opaque `ABI.DecodedIndexedValue` struct representing the hash)
 
 # Docs
 

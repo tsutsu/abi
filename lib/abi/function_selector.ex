@@ -143,18 +143,19 @@ defmodule ABI.FunctionSelector do
 
   def parse_specification_item(_, _), do: nil
 
-  defp parse_specification_type(%{"type" => type} = explicit_opts, true) do
-    explicit_opts =
-      explicit_opts
-      |> Map.delete("type")
-      |> Map.new(fn {k, v} -> {String.to_atom(k), v} end)
+  defp parse_specification_type(%{"type" => typespec} = explicit_opts, return_binding?) do
+    {:binding, inner_type, :unnamed} = decode_type(typespec, true)
 
-    {:binding, type, parsed_opts} = decode_type(type, true)
+    annotated_inner_type = case Map.fetch(explicit_opts, "indexed") do
+      {:ok, true} -> {:indexed, inner_type}
+      _ -> inner_type
+    end
 
-    {:binding, type, Map.merge(parsed_opts, explicit_opts)}
-  end
-  defp parse_specification_type(%{"type" => type}, false) do
-    decode_type(type, false)
+    if return_binding? do
+      {:binding, annotated_inner_type, Map.get(explicit_opts, "name", :unnamed)}
+    else
+      annotated_inner_type
+    end
   end
 
   @doc """
@@ -225,7 +226,12 @@ defmodule ABI.FunctionSelector do
     "(#{Enum.join(encoded_types, ",")})"
   end
 
-  defp get_type({:binding, inner_type, _opts}), do: get_type(inner_type)
+  # TODO: parameterize get_type for usage in two scenarios:
+  #   - canonicalizing params (return inner_type)
+  #   - inspecting/exporting params (return "{inner_type} indexed")
+  defp get_type({:indexed, inner_type}), do: get_type(inner_type)
+
+  defp get_type({:binding, inner_type, _name}), do: get_type(inner_type)
 
   defp get_type(els), do: raise("Unsupported type: #{inspect(els)}")
 
@@ -236,6 +242,18 @@ defmodule ABI.FunctionSelector do
   def is_dynamic?({:array, _type}), do: true
   def is_dynamic?({:array, type, len}) when len > 0, do: is_dynamic?(type)
   def is_dynamic?({:tuple, types}), do: Enum.any?(types, &is_dynamic?/1)
-  def is_dynamic?({:binding, inner_type, _opts}), do: is_dynamic?(inner_type)
+  def is_dynamic?({:indexed, inner_type}), do: is_dynamic?(inner_type)
+  def is_dynamic?({:binding, inner_type, _name}), do: is_dynamic?(inner_type)
   def is_dynamic?(_), do: false
+
+  @doc false
+  @spec is_potentially_dynamic?(ABI.FunctionSelector.type()) :: boolean
+  def is_potentially_dynamic?(:bytes), do: true
+  def is_potentially_dynamic?(:string), do: true
+  def is_potentially_dynamic?({:array, _type}), do: true
+  def is_potentially_dynamic?({:array, _type, _len}), do: true
+  def is_potentially_dynamic?({:tuple, _types}), do: true
+  def is_potentially_dynamic?({:indexed, inner_type}), do: is_dynamic?(inner_type)
+  def is_potentially_dynamic?({:binding, inner_type, _name}), do: is_dynamic?(inner_type)
+  def is_potentially_dynamic?(_), do: false
 end

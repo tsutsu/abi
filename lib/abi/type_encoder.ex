@@ -221,6 +221,17 @@ defmodule ABI.TypeEncoder do
     {encoded_uint <> encoded_array, rest}
   end
 
+  defp encode_type({:indexed, inner_type}, data) do
+    {raw_encoded_data, rest} = encode_type(inner_type, data)
+
+    indexable_encoded_data = case ABI.FunctionSelector.is_potentially_dynamic?(inner_type) do
+      true  -> ExthCrypto.Hash.Keccak.kec(raw_encoded_data)
+      false -> raw_encoded_data
+    end
+
+    {indexable_encoded_data, rest}
+  end
+
   defp encode_type({:binding, inner_type, _opts}, data) do
     encode_type(inner_type, data)
   end
