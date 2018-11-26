@@ -116,6 +116,8 @@ defmodule ABI.FunctionSelector do
   end
 
   @doc false
+  def parse_specification_item(item, return_bindings? \\ false)
+
   def parse_specification_item(%{"type" => "function"} = item, return_bindings?) do
     %{
       "name" => function_name,
