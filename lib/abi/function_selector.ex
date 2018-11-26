@@ -95,8 +95,8 @@ defmodule ABI.FunctionSelector do
         ]
       }
   """
-  def decode(signature) do
-    ABI.Parser.parse!(signature, as: :selector)
+  def decode(signature, parse_opts \\ []) do
+    ABI.Parser.parse!(signature, [as: :selector] ++ parse_opts)
   end
 
   @doc """
