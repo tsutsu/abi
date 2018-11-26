@@ -132,8 +132,8 @@ defmodule ABI.TypeDecoder do
         ]
       }]
   """
-  def decode(encoded_data, function_selector) do
-    decode_raw(encoded_data, function_selector.types)
+  def decode(encoded_data, function_selector, opts \\ []) do
+    decode_raw(encoded_data, function_selector.types, opts)
   end
 
   @doc """
@@ -147,23 +147,28 @@ defmodule ABI.TypeDecoder do
       ...> |> ABI.TypeDecoder.decode_raw([{:tuple, [:string, :bool]}])
       [{"awesome", true}]
   """
-  def decode_raw(encoded_data, types) do
-    do_decode(types, encoded_data, [])
+  def decode_raw(encoded_data, types, opts \\ []) do
+    {decoded_values, named_captures} = do_decode(types, encoded_data, [], [])
+    case Keyword.fetch(opts, :capture) do
+      {:ok, :all_names} -> {decoded_values, named_captures}
+      _ -> decoded_values
+    end
   end
 
-  @spec do_decode([ABI.FunctionSelector.type()], binary(), [any()]) :: [any()]
-  defp do_decode([], bin, _) when byte_size(bin) > 0,
+  @spec do_decode([ABI.FunctionSelector.type()], binary(), [any()], [{binary(), any()}]) :: {[any()], [{binary(), any()}]}
+  defp do_decode([], bin, _, _) when byte_size(bin) > 0,
     do: raise("Found extra binary data: #{inspect(bin)}")
 
-  defp do_decode([], _, acc), do: Enum.reverse(acc)
-
-  defp do_decode([type | remaining_types], data, acc) do
-    {decoded, remaining_data} = decode_type(type, data)
-
-    do_decode(remaining_types, remaining_data, [decoded | acc])
+  defp do_decode([], _, val_acc, capt_acc) do
+    {Enum.reverse(val_acc), Enum.reverse(capt_acc)}
   end
 
-  @spec decode_type(ABI.FunctionSelector.type(), binary()) :: {any(), binary()}
+  defp do_decode([type | remaining_types], data, val_acc, capt_acc) do
+    {decoded, named_captures, remaining_data} = decode_type(type, data)
+    do_decode(remaining_types, remaining_data, [decoded | val_acc], named_captures ++ capt_acc)
+  end
+
+  @spec decode_type(ABI.FunctionSelector.type(), binary()) :: {any(), [{binary(), any()}], binary()}
   defp decode_type({:uint, size_in_bits}, data) do
     decode_uint(data, size_in_bits)
   end
@@ -171,7 +176,7 @@ defmodule ABI.TypeDecoder do
   defp decode_type(:address, data), do: decode_bytes(data, 20, :left)
 
   defp decode_type(:bool, data) do
-    {encoded_value, rest} = decode_uint(data, 8)
+    {encoded_value, [], rest} = decode_uint(data, 8)
 
     value =
       case encoded_value do
@@ -179,102 +184,103 @@ defmodule ABI.TypeDecoder do
         0 -> false
       end
 
-    {value, rest}
+    {value, [], rest}
   end
 
   defp decode_type(:string, data) do
-    {string_size_in_bytes, rest} = decode_uint(data, 256)
-    {raw_bytes, rest} = decode_bytes(rest, string_size_in_bytes, :right)
-    {nul_terminate_string(raw_bytes), rest}
+    {string_size_in_bytes, [], rest} = decode_uint(data, 256)
+    {raw_bytes, [], rest} = decode_bytes(rest, string_size_in_bytes, :right)
+    {nul_terminate_string(raw_bytes), [], rest}
   end
 
   defp decode_type(:bytes, data) do
-    {byte_size, rest} = decode_uint(data, 256)
+    {byte_size, [], rest} = decode_uint(data, 256)
     decode_bytes(rest, byte_size, :right)
   end
 
-  defp decode_type({:bytes, 0}, data), do: {<<>>, data}
+  defp decode_type({:bytes, 0}, data), do: {<<>>, [], data}
 
   defp decode_type({:bytes, size}, data) when size > 0 and size <= 32 do
     decode_bytes(data, size, :right)
   end
 
   defp decode_type({:array, type}, data) do
-    {element_count, rest} = decode_uint(data, 256)
+    {element_count, [], rest} = decode_uint(data, 256)
     decode_type({:array, type, element_count}, rest)
   end
 
-  defp decode_type({:array, _type, 0}, data), do: {[], data}
+  defp decode_type({:array, _type, 0}, data), do: {[], [], data}
 
   defp decode_type({:array, type, element_count}, data) do
-    repeated_type = Enum.map(1..element_count, fn _ -> type end)
+    repeated_type = List.duplicate(type, element_count)
 
-    {tuple, rest} = decode_type({:tuple, repeated_type}, data)
+    {tuple, named_captures, rest} = decode_type({:tuple, repeated_type}, data)
 
-    {tuple |> Tuple.to_list(), rest}
+    {tuple |> Tuple.to_list(), named_captures, rest}
   end
 
   defp decode_type({:tuple, types}, starting_data) do
     # First pass, decode static types
-    {elements, rest} =
-      Enum.reduce(types, {[], starting_data}, fn type, {elements, data} ->
+    {elements, early_named_captures, rest} =
+      Enum.reduce(types, {[], [], starting_data}, fn type, {elements, captures, data} ->
         if ABI.FunctionSelector.is_dynamic?(type) do
-          {tail_position, rest} = decode_type({:uint, 256}, data)
+          {tail_position, [], rest} = decode_type({:uint, 256}, data)
 
-          {[{:dynamic, type, tail_position} | elements], rest}
+          {[{:dynamic, type, tail_position} | elements], captures, rest}
         else
-          {el, rest} = decode_type(type, data)
+          {el, el_capts, rest} = decode_type(type, data)
 
-          {[el | elements], rest}
+          {[el | elements], el_capts ++ captures, rest}
         end
       end)
 
     # Second pass, decode dynamic types
-    {elements, rest} =
-      Enum.reduce(elements |> Enum.reverse(), {[], rest}, fn el, {elements, data} ->
+    {elements, named_captures, rest} =
+      Enum.reduce(elements |> Enum.reverse(), {[], early_named_captures, rest}, fn el, {elements, captures, data} ->
         case el do
           {:dynamic, type, _tail_position} ->
-            {el, rest} = decode_type(type, data)
+            {el, el_capts, rest} = decode_type(type, data)
 
-            {[el | elements], rest}
+            {[el | elements], el_capts ++ captures, rest}
 
           _ ->
-            {[el | elements], data}
+            {[el | elements], captures, data}
         end
       end)
 
-    {elements |> Enum.reverse() |> List.to_tuple(), rest}
+    {elements |> Enum.reverse() |> List.to_tuple(), named_captures, rest}
   end
 
   defp decode_type({:indexed, inner_type}, data) do
-    {field_data, rest} = decode_bytes(data, 32, :right)
+    {field_data, [], rest} = decode_bytes(data, 32, :right)
 
     if ABI.FunctionSelector.is_potentially_dynamic?(inner_type) do
-      {ABI.DecodedIndexedValue.new(inner_type, field_data), rest}
+      {ABI.DecodedIndexedValue.new(inner_type, field_data), [], rest}
     else
       decode_type(inner_type, field_data)
     end
   end
 
-  defp decode_type({:binding, inner_type, _opts}, data) do
-    decode_type(inner_type, data)
+  defp decode_type({:binding, inner_type, name}, data) do
+    {inner_val, inner_capts, rest} = decode_type(inner_type, data)
+    {inner_val, [{name, inner_val} | inner_capts], rest}
   end
 
   defp decode_type(els, _) do
     raise "Unsupported decoding type: #{inspect(els)}"
   end
 
-  @spec decode_uint(binary(), integer()) :: {integer(), binary()}
+  @spec decode_uint(binary(), integer()) :: {integer(), [], binary()}
   defp decode_uint(data, size_in_bits) do
     # TODO: Create `left_pad` repo, err, add to `ABI.Math`
     total_bit_size = size_in_bits + ABI.Math.mod(256 - size_in_bits, 256)
 
     <<value::integer-size(total_bit_size), rest::binary>> = data
 
-    {value, rest}
+    {value, [], rest}
   end
 
-  @spec decode_bytes(binary(), integer(), atom()) :: {binary(), binary()}
+  @spec decode_bytes(binary(), integer(), atom()) :: {binary(), [], binary()}
   def decode_bytes(data, size_in_bytes, padding_direction) do
     # TODO: Create `unright_pad` repo, err, add to `ABI.Math`
     total_size_in_bytes = size_in_bytes + ABI.Math.mod(32 - ABI.Math.mod(size_in_bytes, 32), 32)
@@ -286,13 +292,13 @@ defmodule ABI.TypeDecoder do
         <<_padding::binary-size(padding_size_in_bytes), value::binary-size(size_in_bytes),
           rest::binary()>> = data
 
-        {value, rest}
+        {value, [], rest}
 
       :right ->
         <<value::binary-size(size_in_bytes), _padding::binary-size(padding_size_in_bytes),
           rest::binary()>> = data
 
-        {value, rest}
+        {value, [], rest}
     end
   end
 
