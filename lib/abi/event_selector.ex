@@ -58,6 +58,30 @@ defmodule ABI.EventSelector do
     event_selector
   end
 
+  def named_parameters(%__MODULE__{params: params}) do
+    find_bindings(params, 0)
+    |> Enum.flat_map(fn
+      {name, 0} -> [name]
+      {_name, n} when n > 0 -> []
+    end)
+  end
+
+  def bindings(%__MODULE__{params: params}) do
+    find_bindings(params, 0)
+  end
+
+  defp find_bindings(param_list, depth) when is_list(param_list) do
+    Enum.flat_map(param_list, &find_bindings(&1, depth))
+  end
+  defp find_bindings({:array, inner_type}, depth), do: find_bindings(inner_type, depth + 1)
+  defp find_bindings({:array, inner_type, _size}, depth), do: find_bindings(inner_type, depth + 1)
+  defp find_bindings({:tuple, types}, depth), do: find_bindings(types, depth + 1)
+  defp find_bindings({:indexed, inner_type}, depth), do: find_bindings(inner_type, depth)
+  defp find_bindings({:binding, inner_type, name}, depth) do
+    [{name, depth}] ++ find_bindings(inner_type, depth)
+  end
+  defp find_bindings(_scalar_type, _depth), do: []
+
   @doc """
   Decodes log event data using the given event selector.
   """
