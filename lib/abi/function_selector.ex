@@ -233,6 +233,8 @@ defmodule ABI.FunctionSelector do
   #   - inspecting/exporting params (return "{inner_type} indexed")
   defp get_type({:indexed, inner_type}), do: get_type(inner_type)
 
+  defp get_type({:seq, inner_type}), do: get_type(inner_type)
+
   defp get_type({:binding, inner_type, _name}), do: get_type(inner_type)
 
   defp get_type(els), do: raise("Unsupported type: #{inspect(els)}")
@@ -245,6 +247,7 @@ defmodule ABI.FunctionSelector do
   def is_dynamic?({:array, type, len}) when len > 0, do: is_dynamic?(type)
   def is_dynamic?({:tuple, types}), do: Enum.any?(types, &is_dynamic?/1)
   def is_dynamic?({:indexed, inner_type}), do: is_dynamic?(inner_type)
+  def is_dynamic?({:seq, inner_type}), do: is_dynamic?(inner_type)
   def is_dynamic?({:binding, inner_type, _name}), do: is_dynamic?(inner_type)
   def is_dynamic?(_), do: false
 
@@ -255,7 +258,8 @@ defmodule ABI.FunctionSelector do
   def is_potentially_dynamic?({:array, _type}), do: true
   def is_potentially_dynamic?({:array, _type, _len}), do: true
   def is_potentially_dynamic?({:tuple, _types}), do: true
-  def is_potentially_dynamic?({:indexed, inner_type}), do: is_dynamic?(inner_type)
-  def is_potentially_dynamic?({:binding, inner_type, _name}), do: is_dynamic?(inner_type)
+  def is_potentially_dynamic?({:indexed, inner_type}), do: is_potentially_dynamic?(inner_type)
+  def is_potentially_dynamic?({:seq, inner_type}), do: is_potentially_dynamic?(inner_type)
+  def is_potentially_dynamic?({:binding, inner_type, _name}), do: is_potentially_dynamic?(inner_type)
   def is_potentially_dynamic?(_), do: false
 end

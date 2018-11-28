@@ -261,6 +261,10 @@ defmodule ABI.TypeDecoder do
     end
   end
 
+  defp decode_type({:seq, inner_type}, data) do
+    decode_type(inner_type, data)
+  end
+
   defp decode_type({:binding, inner_type, name}, data) do
     {inner_val, inner_capts, rest} = decode_type(inner_type, data)
     {inner_val, [{name, inner_val} | inner_capts], rest}

@@ -232,7 +232,11 @@ defmodule ABI.TypeEncoder do
     {indexable_encoded_data, rest}
   end
 
-  defp encode_type({:binding, inner_type, _opts}, data) do
+  defp encode_type({:seq, inner_type}, data) do
+    encode_type(inner_type, data)
+  end
+
+  defp encode_type({:binding, inner_type, _name}, data) do
     encode_type(inner_type, data)
   end
 

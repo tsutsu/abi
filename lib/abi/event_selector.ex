@@ -9,15 +9,16 @@ defmodule ABI.EventSelector do
 
   defstruct [:name, :params, :topic_params, :data_params, :signature]
 
+  defp indexed_param?({:binding, inner_type, _}), do: indexed_param?(inner_type)
+  defp indexed_param?({:seq, inner_type}), do: indexed_param?(inner_type)
+  defp indexed_param?({:indexed, _}), do: true
+  defp indexed_param?(_), do: false
+
   @doc """
   Converts an `ABI.FunctionSelector` into an event selector.
   """
   def new(%ABI.FunctionSelector{function: event_name, types: params, returns: nil}, opts \\ []) do
-    params_by_indexedness = Enum.group_by params, fn
-      {:binding, {:indexed, _inner_type}, _name} -> true
-      {:indexed, _inner_type} -> true
-      _ -> false
-    end
+    params_by_indexedness = Enum.group_by(params, &indexed_param?/1)
 
     sel = %__MODULE__{
       name: event_name,
@@ -102,6 +103,7 @@ defmodule ABI.EventSelector do
   defp find_bindings({:array, inner_type, _size}, depth), do: find_bindings(inner_type, depth + 1)
   defp find_bindings({:tuple, types}, depth), do: find_bindings(types, depth + 1)
   defp find_bindings({:indexed, inner_type}, depth), do: find_bindings(inner_type, depth)
+  defp find_bindings({:seq, inner_type}, depth), do: find_bindings(inner_type, depth)
   defp find_bindings({:binding, inner_type, name}, depth) do
     [{name, depth, inner_type}] ++ find_bindings(inner_type, depth)
   end

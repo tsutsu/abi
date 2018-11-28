@@ -7,7 +7,7 @@ defmodule ABI.EventSelectorTest do
     address indexed _from,
     address owner,
     string indexed _to,
-    uint256 indexed _tokenId,
+    uint256 indexed seq _tokenId,
     uint256 tokenId
   )
   """

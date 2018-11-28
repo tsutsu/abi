@@ -4,7 +4,7 @@ INT        = [0-9]+
 LETTERS    = [a-zA-Z_]+
 WHITESPACE = [\s\t\n\r]+
 TYPES      = uint|int|address|bool|fixed|ufixed|bytes|function|string
-MODIFIERS  = indexed|anonymous
+MODIFIERS  = indexed|anonymous|seq
 
 Rules.
 

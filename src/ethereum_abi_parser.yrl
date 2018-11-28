@@ -72,6 +72,8 @@ annotate(Type, AddAnnotations) -> {annotations, Type, AddAnnotations}.
 
 binding({annotations, Type, ["indexed" | Annots]}, Name) ->
   binding({annotations, {indexed, Type}, Annots}, Name);
+binding({annotations, Type, ["seq" | Annots]}, Name) ->
+  binding({annotations, {seq, Type}, Annots}, Name);
 binding({annotations, Type, []}, Name) ->
   binding(Type, Name);
 binding(Type, Name) -> {binding, Type, Name}.
