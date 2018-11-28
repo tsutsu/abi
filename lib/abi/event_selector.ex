@@ -65,16 +65,34 @@ defmodule ABI.EventSelector do
     event_selector
   end
 
-  def named_parameters(%__MODULE__{params: params}) do
+  def named_parameters(%__MODULE__{params: params}, opts \\ []) do
     find_bindings(params, 0)
-    |> Enum.flat_map(fn
-      {name, 0} -> [name]
-      {_name, n} when n > 0 -> []
+    |> Enum.filter(fn
+      {_name, 0, _type} -> true
+      _ -> false
+    end)
+    |> maybe_erase_binding_types(opts)
+    |> Enum.map(fn
+      {name, 0} -> name
+      {name, 0, type} -> {name, type}
     end)
   end
 
-  def bindings(%__MODULE__{params: params}) do
+  def bindings(%__MODULE__{params: params}, opts \\ []) do
     find_bindings(params, 0)
+    |> maybe_erase_binding_types(opts)
+  end
+
+  defp maybe_erase_binding_types(found_bindings, opts) do
+    if Keyword.get(opts, :with_types, false) do
+      found_bindings
+    else
+      erase_binding_types(found_bindings)
+    end
+  end
+
+  defp erase_binding_types(found_bindings) do
+    Enum.map(found_bindings, fn {name, depth, _type} -> {name, depth} end)
   end
 
   defp find_bindings(param_list, depth) when is_list(param_list) do
@@ -85,7 +103,7 @@ defmodule ABI.EventSelector do
   defp find_bindings({:tuple, types}, depth), do: find_bindings(types, depth + 1)
   defp find_bindings({:indexed, inner_type}, depth), do: find_bindings(inner_type, depth)
   defp find_bindings({:binding, inner_type, name}, depth) do
-    [{name, depth}] ++ find_bindings(inner_type, depth)
+    [{name, depth, inner_type}] ++ find_bindings(inner_type, depth)
   end
   defp find_bindings(_scalar_type, _depth), do: []
 
