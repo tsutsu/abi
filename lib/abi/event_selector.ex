@@ -35,6 +35,13 @@ defmodule ABI.EventSelector do
   end
 
   @doc """
+  Converts the event selector (back) into an `ABI.FunctionSelector`.
+  """
+  def to_function_selector(%__MODULE__{name: name, params: params}) do
+    %ABI.FunctionSelector{function: name, types: params, returns: nil}
+  end
+
+  @doc """
   Calculates the Keccak256 hash of the canonicalized event selector. This hash appears as
   `topics[0]` of log-event data emitted by this event selector.
   """
