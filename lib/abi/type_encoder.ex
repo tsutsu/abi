@@ -225,7 +225,7 @@ defmodule ABI.TypeEncoder do
     {raw_encoded_data, rest} = encode_type(inner_type, data)
 
     indexable_encoded_data = case ABI.FunctionSelector.is_potentially_dynamic?(inner_type) do
-      true  -> ExthCrypto.Hash.Keccak.kec(raw_encoded_data)
+      true  -> ABI.Math.kec(raw_encoded_data)
       false -> raw_encoded_data
     end
 

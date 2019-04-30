@@ -50,7 +50,7 @@ defmodule ABI.EventSelector do
   def signature(%__MODULE__{signature: nil, name: name, params: params}) do
     %ABI.FunctionSelector{function: name, types: params, returns: nil}
     |> ABI.FunctionSelector.encode()
-    |> ExthCrypto.Hash.Keccak.kec()
+    |> ABI.Math.kec()
   end
 
   @doc """
