@@ -118,9 +118,9 @@ defmodule ABI.TypeEncoder do
   end
 
   @spec encode_method_id(%ABI.FunctionSelector{}) :: binary()
-  defp encode_method_id(%ABI.FunctionSelector{function: nil}), do: ""
+  def encode_method_id(%ABI.FunctionSelector{function: nil}), do: ""
 
-  defp encode_method_id(function_selector) do
+  def encode_method_id(function_selector) do
     # Encode selector e.g. "baz(uint32,bool)" and take keccak
     kec =
       function_selector
