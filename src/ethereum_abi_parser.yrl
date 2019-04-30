@@ -1,5 +1,5 @@
 Terminals '(' ')' '[' ']' ',' '->' ' ' typename modifier letters digits 'x' 'begin' 'end' 'expecting selector' 'expecting type'.
-Nonterminals dispatch selector nontrivial_selector comma_delimited_params param annotated_type pre_annotated_type pre_type_annotations post_type_annotations modifier_or_identifier type_with_subscripts array_subscripts tuple array_subscript type typespec identifier identifier_parts identifier_arb_parts identifier_arb_part identifier_safe_part identifier_conflicting_part.
+Nonterminals dispatch selector nontrivial_selector comma_delimited_params param annotated_type pre_annotated_type pre_type_annotations post_type_annotations modifier_or_identifier type_with_subscripts array_subscripts tuple array_subscript type typespec arb_identifier safe_identifier safe_identifier_parts identifier_arb_parts identifier_arb_part identifier_safe_part identifier_conflicting_part.
 Rootsymbol dispatch.
 
 dispatch -> 'expecting type' 'begin' param 'end' : {type, '$3'}.
@@ -11,8 +11,8 @@ selector -> typespec : #{function => nil, types => '$1', returns => nil}.
 selector -> nontrivial_selector : '$1'.
 
 nontrivial_selector -> '(' ')' '->' param : #{function => nil, types => '$1', returns => '$3'}.
-nontrivial_selector -> identifier typespec : #{function => '$1', types => '$2', returns => nil}.
-nontrivial_selector -> identifier typespec '->' param : #{function => '$1', types => '$2', returns => '$4'}.
+nontrivial_selector -> arb_identifier typespec : #{function => '$1', types => '$2', returns => nil}.
+nontrivial_selector -> arb_identifier typespec '->' param : #{function => '$1', types => '$2', returns => '$4'}.
 
 typespec -> '(' ')' : [].
 typespec -> '(' comma_delimited_params ')' : '$2'.
@@ -38,7 +38,7 @@ post_type_annotations -> ' ' modifier_or_identifier : ['$2'].
 post_type_annotations -> ' ' modifier_or_identifier post_type_annotations : ['$2' | '$3'].
 
 modifier_or_identifier -> modifier : v('$1').
-modifier_or_identifier -> identifier : {name, '$1'}.
+modifier_or_identifier -> safe_identifier : {name, '$1'}.
 
 type_with_subscripts -> type : '$1'.
 type_with_subscripts -> type array_subscripts : with_subscripts('$1', '$2').
@@ -57,12 +57,14 @@ type -> typename digits 'x' digits :
   double_juxt_type(list_to_atom(v('$1')), v('$3'), list_to_integer(v('$2')), list_to_integer(v('$4'))).
 type -> tuple : '$1'.
 
-identifier -> identifier_parts : iolist_to_binary('$1').
+arb_identifier -> identifier_arb_parts : iolist_to_binary('$1').
 
-identifier_parts -> identifier_safe_part : [v('$1')].
-identifier_parts -> identifier_safe_part identifier_arb_parts : [v('$1') | '$2'].
-identifier_parts -> identifier_conflicting_part identifier_safe_part : [v('$1'), v('$2')].
-identifier_parts -> identifier_conflicting_part identifier_safe_part identifier_arb_parts : [v('$1'), v('$2') | '$3'].
+safe_identifier -> safe_identifier_parts : iolist_to_binary('$1').
+
+safe_identifier_parts -> identifier_safe_part : [v('$1')].
+safe_identifier_parts -> identifier_safe_part identifier_arb_parts : [v('$1') | '$2'].
+safe_identifier_parts -> identifier_conflicting_part identifier_safe_part : [v('$1'), v('$2')].
+safe_identifier_parts -> identifier_conflicting_part identifier_safe_part identifier_arb_parts : [v('$1'), v('$2') | '$3'].
 
 identifier_arb_parts -> identifier_arb_part : [v('$1')].
 identifier_arb_parts -> identifier_arb_part identifier_arb_parts : [v('$1') | '$2'].
