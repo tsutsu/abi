@@ -1,16 +1,16 @@
-Terminals '(' ')' '[' ']' ',' '->' 'x' typename modifier letters digits 'expecting selector' 'expecting type'.
-Nonterminals dispatch selector nontrivial_selector comma_delimited_params param annotated_type pre_annotated_type type_annotations type_with_subscripts array_subscripts tuple array_subscript type typespec identifier identifier0 identifierN identifierN_part.
+Terminals '(' ')' '[' ']' ',' '->' ' ' typename modifier letters digits 'x' 'begin' 'end' 'expecting selector' 'expecting type'.
+Nonterminals dispatch selector nontrivial_selector comma_delimited_params param annotated_type pre_annotated_type pre_type_annotations post_type_annotations modifier_or_identifier type_with_subscripts array_subscripts tuple array_subscript type typespec identifier identifier_parts identifier_arb_parts identifier_arb_part identifier_safe_part identifier_conflicting_part.
 Rootsymbol dispatch.
 
-dispatch -> 'expecting type' param : {type, '$2'}.
-dispatch -> 'expecting selector' selector : {selector, '$2'}.
-dispatch -> tuple : {selector, #{function => nil, types => ['$1'], returns => nil}}.
-dispatch -> nontrivial_selector : {selector, '$1'}.
+dispatch -> 'expecting type' 'begin' param 'end' : {type, '$3'}.
+dispatch -> 'expecting selector' 'begin' selector 'end' : {selector, '$3'}.
+dispatch -> 'begin' tuple 'end' : {selector, #{function => nil, types => ['$2'], returns => nil}}.
+dispatch -> 'begin' nontrivial_selector 'end' : {selector, '$2'}.
 
 selector -> typespec : #{function => nil, types => '$1', returns => nil}.
 selector -> nontrivial_selector : '$1'.
 
-nontrivial_selector -> typespec '->' param : #{function => nil, types => '$1', returns => '$3'}.
+nontrivial_selector -> '(' ')' '->' param : #{function => nil, types => '$1', returns => '$3'}.
 nontrivial_selector -> identifier typespec : #{function => '$1', types => '$2', returns => nil}.
 nontrivial_selector -> identifier typespec '->' param : #{function => '$1', types => '$2', returns => '$4'}.
 
@@ -23,17 +23,22 @@ tuple -> '(' comma_delimited_params ')' : {tuple, '$2'}.
 comma_delimited_params -> param : ['$1'].
 comma_delimited_params -> param ',' comma_delimited_params : ['$1' | '$3'].
 
-param -> annotated_type : binding('$1', unnamed).
-param -> annotated_type identifier : binding('$1', '$2').
+param -> annotated_type : apply_annotations('$1').
 
 annotated_type -> pre_annotated_type : '$1'.
-annotated_type -> pre_annotated_type type_annotations : annotate('$1', '$2').
+annotated_type -> pre_annotated_type post_type_annotations : annotate('$1', '$2').
 
 pre_annotated_type -> type_with_subscripts : '$1'.
-pre_annotated_type -> type_annotations type_with_subscripts : annotate('$2', '$1').
+pre_annotated_type -> pre_type_annotations type_with_subscripts : annotate('$2', '$1').
 
-type_annotations -> modifier : [v('$1')].
-type_annotations -> modifier type_annotations : [v('$1') | '$2'].
+pre_type_annotations -> modifier ' ' : [v('$1')].
+pre_type_annotations -> modifier ' ' pre_type_annotations : [v('$1') | '$3'].
+
+post_type_annotations -> ' ' modifier_or_identifier : ['$2'].
+post_type_annotations -> ' ' modifier_or_identifier post_type_annotations : ['$2' | '$3'].
+
+modifier_or_identifier -> modifier : v('$1').
+modifier_or_identifier -> identifier : {name, '$1'}.
 
 type_with_subscripts -> type : '$1'.
 type_with_subscripts -> type array_subscripts : with_subscripts('$1', '$2').
@@ -52,31 +57,46 @@ type -> typename digits 'x' digits :
   double_juxt_type(list_to_atom(v('$1')), v('$3'), list_to_integer(v('$2')), list_to_integer(v('$4'))).
 type -> tuple : '$1'.
 
-identifier -> identifier0 : iolist_to_binary('$1').
+identifier -> identifier_parts : iolist_to_binary('$1').
 
-identifier0 -> letters : [v('$1')].
-identifier0 -> letters identifierN : [v('$1') | '$2'].
+identifier_parts -> identifier_safe_part : [v('$1')].
+identifier_parts -> identifier_safe_part identifier_arb_parts : [v('$1') | '$2'].
+identifier_parts -> identifier_conflicting_part identifier_safe_part : [v('$1'), v('$2')].
+identifier_parts -> identifier_conflicting_part identifier_safe_part identifier_arb_parts : [v('$1'), v('$2') | '$3'].
 
-identifierN -> identifierN_part : [v('$1')].
-identifierN -> identifierN_part identifierN : [v('$1') | '$2'].
+identifier_arb_parts -> identifier_arb_part : [v('$1')].
+identifier_arb_parts -> identifier_arb_part identifier_arb_parts : [v('$1') | '$2'].
 
-identifierN_part -> letters : '$1'.
-identifierN_part -> digits : '$1'.
+identifier_arb_part -> identifier_safe_part : '$1'.
+identifier_arb_part -> identifier_conflicting_part : '$1'.
+
+identifier_safe_part -> letters : '$1'.
+identifier_safe_part -> digits : '$1'.
+identifier_safe_part -> 'x' : {nil, nil, "x"}.
+
+identifier_conflicting_part -> typename : '$1'.
+identifier_conflicting_part -> modifier : '$1'.
 
 Erlang code.
 
 v({_Token, _Line, Value}) -> Value.
 
-annotate({annotations, Type, Annotations0}, AddAnnotations) -> {annotations, Type, lists:umerge(Annotations0, AddAnnotations)};
-annotate(Type, AddAnnotations) -> {annotations, Type, AddAnnotations}.
+annotate({annotations, Type, Annotations0}, AddAnnotations) -> {annotations, Type, lists:umerge(Annotations0, lists:usort(AddAnnotations))};
+annotate(Type, AddAnnotations) -> {annotations, Type, lists:usort(AddAnnotations)}.
 
-binding({annotations, Type, ["indexed" | Annots]}, Name) ->
-  binding({annotations, {indexed, Type}, Annots}, Name);
-binding({annotations, Type, ["seq" | Annots]}, Name) ->
-  binding({annotations, {seq, Type}, Annots}, Name);
-binding({annotations, Type, []}, Name) ->
-  binding(Type, Name);
-binding(Type, Name) -> {binding, Type, Name}.
+apply_annotations({annotations, Type, Annots}) ->
+  apply_annotations(Type, Annots, unnamed);
+apply_annotations(Type) ->
+  apply_annotations(Type, [], unnamed).
+
+apply_annotations(Type, [], Name) ->
+  {binding, Type, Name};
+apply_annotations(Type, ["indexed" | RestAnnots], Name) ->
+  apply_annotations({indexed, Type}, RestAnnots, Name);
+apply_annotations(Type, ["seq" | RestAnnots], Name) ->
+  apply_annotations({seq, Type}, RestAnnots, Name);
+apply_annotations(Type, [{name, NewName} | RestAnnots], unnamed) ->
+  apply_annotations(Type, RestAnnots, NewName).
 
 plain_type(address) -> address;
 plain_type(bool) -> bool;

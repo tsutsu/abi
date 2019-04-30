@@ -11,8 +11,7 @@ Rules.
 {TYPES}       : {token, {typename,   TokenLine, TokenChars}}.
 {MODIFIERS}   : {token, {modifier,   TokenLine, TokenChars}}.
 {INT}         : {token, {digits,     TokenLine, TokenChars}}.
-{WHITESPACE}x : {token, {letters,    TokenLine, "x"}}.
-x             : {token, {'x',        TokenLine}}.
+x             : {token, {'x',        TokenLine, "x"}}.
 {LETTERS}     : {token, {letters,    TokenLine, TokenChars}}.
 \[            : {token, {'[',        TokenLine}}.
 \]            : {token, {']',        TokenLine}}.
@@ -20,6 +19,6 @@ x             : {token, {'x',        TokenLine}}.
 \)            : {token, {')',        TokenLine}}.
 ,             : {token, {',',        TokenLine}}.
 ->            : {token, {'->',       TokenLine}}.
-{WHITESPACE}  : skip_token.
+{WHITESPACE}  : {token, {' ',        TokenLine}}.
 
 Erlang code.

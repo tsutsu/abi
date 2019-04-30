@@ -3,7 +3,7 @@ defmodule ABI.Parser do
 
   @doc false
   def parse!(str, opts \\ []) do
-    {:ok, tokens, _} = str |> String.to_charlist() |> :ethereum_abi_lexer.string()
+    tokens = lex!(str)
 
     tokens =
       case opts[:as] do
@@ -24,6 +24,25 @@ defmodule ABI.Parser do
         struct!(ABI.FunctionSelector, canonicalize_fn.(selector_parts))
     end
   end
+
+  @doc false
+  def lex!(str) do
+    {:ok, tokens, _} = str |> String.to_charlist() |> :ethereum_abi_lexer.string()
+
+    [{:begin, 1}] ++ trim_whitespace(tokens, []) ++ [{:end, 1}]
+  end
+
+  # Removes all whitespace tokens except between identifier-esques.
+  # The remaining whitespace tokens represent significant whitespace
+  # (i.e. separating identifier from type, or type from modifiers.)
+  defp trim_whitespace([], acc), do:
+    Enum.reverse(acc)
+  defp trim_whitespace([{:" ", _}=sp | [{_, _, _} | _]=rest], [{_, _, _} | _]=acc), do:
+    trim_whitespace(rest, [sp | acc])
+  defp trim_whitespace([{:" ", _} | rest], acc), do:
+    trim_whitespace(rest, acc)
+  defp trim_whitespace([other | rest], acc), do:
+    trim_whitespace(rest, [other | acc])
 
   defp strip_bindings({:array, type}), do: {:array, strip_bindings(type)}
   defp strip_bindings({:array, type, size}), do: {:array, strip_bindings(type), size}
