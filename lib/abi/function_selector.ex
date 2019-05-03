@@ -204,7 +204,7 @@ defmodule ABI.FunctionSelector do
   @doc false
   def signature(%__MODULE__{function: f} = function_selector) when is_binary(f) do
     method_id = ABI.TypeEncoder.encode_method_id(function_selector)
-    size_range = ABI.TypeSizer.encoded_size_range(function_selector)
+    size_range = ABI.TypeSizer.padded_size_range(function_selector)
     {method_id, size_range}
   end
   def signature(%__MODULE__{function: nil}) do
